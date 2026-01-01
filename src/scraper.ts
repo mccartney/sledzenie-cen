@@ -1,4 +1,4 @@
-import { chromium, Browser } from "playwright";
+import { chromium, Browser, Page } from "playwright";
 
 export interface PriceResult {
   url: string;
@@ -23,12 +23,36 @@ export async function closeBrowser(): Promise<void> {
   }
 }
 
+async function handleDamian(page: Page): Promise<void> {
+  // Remove cookie wrapper that blocks interactions
+  await page.evaluate(() => {
+    document.getElementById("cmpwrapper")?.remove();
+  });
+
+  // Select city: Warszawa
+  await page.click('text="Wybierz miasto"');
+  await page.waitForTimeout(500);
+  await page.click('.base-form-select-list__item >> text="Warszawa"');
+  await page.waitForTimeout(500);
+
+  // Select location: Bażantarni
+  await page.click('text="Wybierz placówkę"');
+  await page.waitForTimeout(500);
+  await page.click('.base-form-select-list__item >> text=/Bażantarni/i');
+  await page.waitForTimeout(500);
+}
+
 export async function fetchPrice(url: string): Promise<PriceResult> {
   const b = await getBrowser();
   const page = await b.newPage();
 
   try {
     await page.goto(url, { waitUntil: "networkidle" });
+
+    // Site-specific interactions
+    if (url.includes("sklep.damian.pl")) {
+      await handleDamian(page);
+    }
 
     const name = await page.title();
 
@@ -63,6 +87,16 @@ export async function fetchPrice(url: string): Promise<PriceResult> {
           if (match) {
             return match[1].replace(",", ".");
           }
+        }
+      }
+
+      // damian.pl: first price after location selection
+      const damianPrice = document.querySelector(".price-field--font-size-lg-2");
+      if (damianPrice) {
+        const text = damianPrice.textContent || "";
+        const match = text.match(/(\d+(?:[.,]\d+)?)\s*(?:zł|PLN)/i);
+        if (match) {
+          return match[1].replace(",", ".");
         }
       }
 
