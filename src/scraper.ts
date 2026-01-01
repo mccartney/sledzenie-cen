@@ -1,4 +1,5 @@
-import { chromium, Browser, Page } from "playwright";
+import { chromium, Browser } from "playwright";
+import { getExtractor } from "./extractors/index.js";
 
 export interface PriceResult {
   url: string;
@@ -23,25 +24,6 @@ export async function closeBrowser(): Promise<void> {
   }
 }
 
-async function handleDamian(page: Page): Promise<void> {
-  // Remove cookie wrapper that blocks interactions
-  await page.evaluate(() => {
-    document.getElementById("cmpwrapper")?.remove();
-  });
-
-  // Select city: Warszawa
-  await page.click('text="Wybierz miasto"');
-  await page.waitForTimeout(500);
-  await page.click('.base-form-select-list__item >> text="Warszawa"');
-  await page.waitForTimeout(500);
-
-  // Select location: Bażantarni
-  await page.click('text="Wybierz placówkę"');
-  await page.waitForTimeout(500);
-  await page.click('.base-form-select-list__item >> text=/Bażantarni/i');
-  await page.waitForTimeout(500);
-}
-
 export async function fetchPrice(url: string): Promise<PriceResult> {
   const b = await getBrowser();
   const page = await b.newPage();
@@ -49,65 +31,20 @@ export async function fetchPrice(url: string): Promise<PriceResult> {
   try {
     await page.goto(url, { waitUntil: "networkidle" });
 
-    // Site-specific interactions
-    if (url.includes("sklep.damian.pl")) {
-      await handleDamian(page);
+    const name = await page.title();
+    const extractor = getExtractor(url);
+
+    if (!extractor) {
+      return { url, name, price: null, error: "No extractor for this domain" };
     }
 
-    const name = await page.title();
+    const price = await extractor.extract(page);
 
-    const priceText = await page.evaluate(() => {
-      const bodyText = document.body.innerText;
-
-      // alab.pl: "Cena badania: X zł"
-      const labelMatch = bodyText.match(
-        /Cena\s*badania[:\s]*(\d+(?:[.,]\d+)?)\s*(?:zł|PLN)/i
-      );
-      if (labelMatch) {
-        return labelMatch[1].replace(",", ".");
-      }
-
-      // alab.pl fallback: price in large text spans
-      const priceSpan = document.querySelector(
-        'span[class*="text-xl"], span[class*="text-3xl"]'
-      );
-      if (priceSpan) {
-        const text = priceSpan.textContent || "";
-        const match = text.match(/(\d+(?:[.,]\d+)?)\s*(?:zł|PLN)/i);
-        if (match) {
-          return match[1].replace(",", ".");
-        }
-      }
-
-      // diag.pl: price in MuiTypography heading elements
-      for (const el of document.querySelectorAll("div")) {
-        if (el.className && el.className.includes("MuiTypography-h")) {
-          const text = el.textContent || "";
-          const match = text.match(/^(\d+(?:[.,]\d+)?)\s*(?:zł|PLN)$/i);
-          if (match) {
-            return match[1].replace(",", ".");
-          }
-        }
-      }
-
-      // damian.pl: first price after location selection
-      const damianPrice = document.querySelector(".price-field--font-size-lg-2");
-      if (damianPrice) {
-        const text = damianPrice.textContent || "";
-        const match = text.match(/(\d+(?:[.,]\d+)?)\s*(?:zł|PLN)/i);
-        if (match) {
-          return match[1].replace(",", ".");
-        }
-      }
-
-      return null;
-    });
-
-    if (!priceText) {
+    if (price === null) {
       return { url, name, price: null, error: "Price not found" };
     }
 
-    return { url, name, price: parseFloat(priceText) };
+    return { url, name, price };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return { url, name: "", price: null, error: message };
