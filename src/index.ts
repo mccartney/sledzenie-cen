@@ -1,6 +1,6 @@
 import { readFileSync } from "fs";
 import { resolve } from "path";
-import { fetchAllPrices } from "./scraper.js";
+import { fetchAllPrices, closeBrowser } from "./scraper.js";
 import { appendPrices } from "./sheets.js";
 
 async function main() {
@@ -29,6 +29,7 @@ async function main() {
 
   console.log("Appending to Google Sheets...");
   await appendPrices(results);
+  await closeBrowser();
   console.log("Done!");
 }
 

@@ -4,7 +4,8 @@
       "WebFetch(domain:www.alab.pl)",
       "Bash(npm install:*)",
       "Bash(npx tsc:*)",
-      "Bash(git -C /Users/greg/git/prywatne/sledzenie-cen remote -v)"
+      "Bash(git -C /Users/greg/git/prywatne/sledzenie-cen remote -v)",
+      "Bash(npx tsx:*)"
     ]
   }
 }
