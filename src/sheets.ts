@@ -31,14 +31,20 @@ export async function ensureHeaders(
   const existingHeaders = response.data.values?.[0] || [];
 
   if (existingHeaders.length === 0) {
-    const headers = ["Timestamp", ...results.map((r) => r.name || r.url)];
+    const headers = [
+      "Timestamp",
+      ...results.map((r) => {
+        const label = r.name || r.url;
+        return `=HYPERLINK("${r.url}", "${label.replace(/"/g, '""')}")`;
+      }),
+    ];
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
       range: `${SHEET_NAME}!A1`,
-      valueInputOption: "RAW",
+      valueInputOption: "USER_ENTERED",
       requestBody: { values: [headers] },
     });
-    return [headers];
+    return [["Timestamp", ...results.map((r) => r.name || r.url)]];
   }
 
   return [existingHeaders as string[]];
