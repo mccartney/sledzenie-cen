@@ -35,6 +35,7 @@ export async function fetchPrice(url: string): Promise<PriceResult> {
     const priceText = await page.evaluate(() => {
       const bodyText = document.body.innerText;
 
+      // alab.pl: "Cena badania: X zł"
       const labelMatch = bodyText.match(
         /Cena\s*badania[:\s]*(\d+(?:[.,]\d+)?)\s*(?:zł|PLN)/i
       );
@@ -42,6 +43,7 @@ export async function fetchPrice(url: string): Promise<PriceResult> {
         return labelMatch[1].replace(",", ".");
       }
 
+      // alab.pl fallback: price in large text spans
       const priceSpan = document.querySelector(
         'span[class*="text-xl"], span[class*="text-3xl"]'
       );
@@ -50,6 +52,17 @@ export async function fetchPrice(url: string): Promise<PriceResult> {
         const match = text.match(/(\d+(?:[.,]\d+)?)\s*(?:zł|PLN)/i);
         if (match) {
           return match[1].replace(",", ".");
+        }
+      }
+
+      // diag.pl: price in MuiTypography heading elements
+      for (const el of document.querySelectorAll("div")) {
+        if (el.className && el.className.includes("MuiTypography-h")) {
+          const text = el.textContent || "";
+          const match = text.match(/^(\d+(?:[.,]\d+)?)\s*(?:zł|PLN)$/i);
+          if (match) {
+            return match[1].replace(",", ".");
+          }
         }
       }
 
