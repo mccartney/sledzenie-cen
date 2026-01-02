@@ -26,6 +26,7 @@ export async function ensureHeaders(
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
     range: `${SHEET_NAME}!A1:ZZ1`,
+    valueRenderOption: "FORMULA",
   });
 
   const existingHeaders = (response.data.values?.[0] || []) as string[];
@@ -44,12 +45,11 @@ export async function ensureHeaders(
       valueInputOption: "USER_ENTERED",
       requestBody: { values: [headers] },
     });
-    return [["Timestamp", ...results.map((r) => r.name || r.url)]];
+    return [["Timestamp", ...results.map((r) => r.url)]];
   }
 
   const newResults = results.filter(
-    (r) =>
-      !existingHeaders.some((h) => h.includes(r.url) || h === r.name || h === r.url)
+    (r) => !existingHeaders.some((h) => h.includes(r.url))
   );
 
   if (newResults.length > 0) {
@@ -64,7 +64,7 @@ export async function ensureHeaders(
       valueInputOption: "USER_ENTERED",
       requestBody: { values: [newHeaders] },
     });
-    return [[...existingHeaders, ...newResults.map((r) => r.name || r.url)]];
+    return [[...existingHeaders, ...newResults.map((r) => r.url)]];
   }
 
   return [existingHeaders];
@@ -81,13 +81,7 @@ export async function appendPrices(results: PriceResult[]): Promise<void> {
 
   for (let i = 1; i < headers.length; i++) {
     const header = headers[i];
-    const result = results.find(
-      (r) =>
-        r.name === header ||
-        r.url === header ||
-        header.includes(r.url) ||
-        header.includes(r.name)
-    );
+    const result = results.find((r) => header.includes(r.url));
     if (result?.price !== null && result?.price !== undefined) {
       row.push(result.price);
     } else {
